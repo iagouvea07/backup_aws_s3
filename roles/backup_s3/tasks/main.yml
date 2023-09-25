@@ -1,0 +1,16 @@
+---
+- name: List itens to backup directory
+  ansible.builtin.find:
+    paths: /backup
+    file_type: file
+  register: output_dir
+
+- name: Sync backup files to AWS S3
+  amazon.aws.s3_object:
+    access_key: "{{ access_key }}"
+    secret_key: "{{ secret_access_key }}"
+    bucket: "{{ bucket_name }}"
+    object: "{{ item | basename }}"
+    src: "{{ item }}"
+    mode: put
+  with_items: "{{ output_dir.files | map(attribute='path')}}"

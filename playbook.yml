@@ -1,0 +1,6 @@
+---
+- name: Tasks for AWS
+  hosts: all
+  become: yes
+  roles:
+    - backup_s3
