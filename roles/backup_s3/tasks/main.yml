@@ -1,31 +1,24 @@
 ---
-- name: List itens to backup directory
-  ansible.builtin.find:
-    paths: /backup
-    file_type: file
-  register: output_dir
-
 - name: Sync backup files to AWS S3
-  amazon.aws.s3_object:
+  community.aws.s3_sync:
     access_key: "{{ access_key }}"
     secret_key: "{{ secret_access_key }}"
     bucket: "{{ bucket_name }}"
-    object: "{{ item | basename }}"
-    src: "{{ item }}"
-    mode: put
-  with_items: "{{ output_dir.files | map(attribute='path')}}"
-  register: sync_s3_result
+    file_root: /backup/
+    storage_class: STANDARD
+  register: s3_sync_result
   ignore_errors: yes
 
-- name: Capture log errors on remote machine
-  copy:
-    content: "{{ sync_s3_result.msg }}"
-    dest: /var/log/"{{ host }}".log
+- name: Updating backup failed
+  ansible.builtin.replace:
+    path: /var/monitoring/data.ini
+    regexp: 'backupS3 = .*'
+    replace: 'backupS3 = failed'
   when: s3_sync_result.failed
 
-- name: Copy errors from remote machine to local machine
-  fetch:
-    src: /var/log/"{{ host }}".log
-    dest: /var/log/"{{ host }}".log
-    flat: yes
-  when: s3_sync_result.failed
+- name: Updating backup success
+  ansible.builtin.replace:
+    path: /var/monitoring/data.ini
+    regexp: 'backupS3 = .*'
+    replace: 'backupS3 = success'
+  when: s3_sync_result.changed
